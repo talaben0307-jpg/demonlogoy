@@ -276,6 +276,68 @@ local function isPlayerOrCharacter(inst)
     return false
 end
 
+local function isMapStructure(inst)
+    if not inst or not inst.Parent then return true end
+    if inst == Workspace or inst == Workspace.CurrentCamera then return true end
+    if inst:IsDescendantOf(MainGui) or inst:IsDescendantOf(EspGui) then return true end
+    local p = inst.Parent
+    while p and p ~= Workspace do
+        local pn = string.lower(p.Name)
+        if pn == "map" or pn == "maps" or pn == "house" or pn == "building" or pn == "buildings"
+            or pn == "rooms" or pn == "walls" or pn == "floors" or pn == "terrain" or pn == "lighting"
+            or pn == "props" or pn == "furniture" or pn == "exterior" or pn == "interior" or pn == "yard"
+            or pn == "street" or pn == "road" or pn == "trees" or pn == "foliage" or pn == "spawns" then
+            return true
+        end
+        p = p.Parent
+    end
+    local n = string.lower(inst.Name)
+    local envNames = {
+        "wall", "floor", "ceiling", "roof", "door", "window", "stairs", "stair",
+        "fence", "gate", "tree", "bush", "grass", "leaf", "leaves", "rock", "stone",
+        "dirt", "sand", "water", "road", "sidewalk", "curb", "car", "truck", "van",
+        "lamp", "streetlight", "post", "pole", "table", "chair", "bed", "sofa", "couch",
+        "cabinet", "shelf", "sink", "toilet", "shower", "bath", "fridge", "stove",
+        "tv_screen", "screen", "painting", "picture", "frame", "curtain", "blind",
+        "baseplate", "spawnlocation", "part", "union", "meshpart", "wedgepart", "cornerwedgepart"
+    }
+    for _, en in ipairs(envNames) do
+        if n == en or n:find("^" .. en .. "[%d_]") or n:find("_" .. en .. "$") then
+            return true
+        end
+    end
+    return false
+end
+
+local function isActiveVisualVisible(inst)
+    if not inst then return false end
+    if inst:IsA("BasePart") then
+        if inst.Transparency >= 0.98 then return false end
+        local parentModel = inst:FindFirstAncestorOfClass("Model")
+        if parentModel and parentModel ~= inst and not getHRP(parentModel) then
+            local hasVisible = false
+            for _, d in ipairs(parentModel:GetDescendants()) do
+                if d:IsA("BasePart") and d.Transparency < 0.98 then
+                    hasVisible = true
+                    break
+                end
+            end
+            if not hasVisible then return false end
+        end
+        return true
+    elseif inst:IsA("Model") then
+        for _, d in ipairs(inst:GetDescendants()) do
+            if d:IsA("BasePart") and d.Transparency < 0.98 then
+                return true
+            end
+        end
+        return false
+    elseif inst:IsA("Tool") then
+        return true
+    end
+    return false
+end
+
 local function findGhostModel()
     local candidates = {}
     for _, folderName in ipairs({ "Ghost", "Ghosts", "Entity", "Entities", "Monster", "Monsters", "AI", "NPCs" }) do
@@ -309,6 +371,152 @@ local function findGhostModel()
     return nil
 end
 
+local function isRealGhostOrb(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    local n = string.lower(obj.Name)
+    if not (n:find("orb") or n:find("ghostorb")) then return false end
+    if n:find("absorb") or n:find("effect") or n:find("trail") then return false end
+
+    if obj:IsA("ParticleEmitter") then
+        return obj.Enabled == true and obj.Rate > 0
+    end
+    if obj:IsA("BasePart") then
+        if obj.Transparency >= 0.95 then return false end
+        local pe = obj:FindFirstChildWhichIsA("ParticleEmitter", true)
+        if pe then
+            return pe.Enabled == true
+        end
+        return true
+    end
+    if obj:IsA("Model") then
+        for _, d in ipairs(obj:GetDescendants()) do
+            if d:IsA("ParticleEmitter") and d.Enabled == true then
+                return true
+            elseif d:IsA("BasePart") and d.Transparency < 0.95 then
+                return true
+            end
+        end
+        return false
+    end
+    return false
+end
+
+local function isRealHandprints(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    local n = string.lower(obj.Name)
+    if not (n:find("handprint") or n:find("fingerprint") or n:find("hand_print") or n:find("finger_print")) then
+        return false
+    end
+    if obj:IsA("Decal") or obj:IsA("Texture") then
+        return obj.Transparency < 0.95
+    end
+    if obj:IsA("BasePart") then
+        if obj.Transparency < 0.95 then return true end
+        for _, d in ipairs(obj:GetDescendants()) do
+            if (d:IsA("Decal") or d:IsA("Texture")) and d.Transparency < 0.95 then
+                return true
+            end
+        end
+        return false
+    end
+    if obj:IsA("Model") then
+        for _, d in ipairs(obj:GetDescendants()) do
+            if (d:IsA("Decal") or d:IsA("Texture")) and d.Transparency < 0.95 then
+                return true
+            elseif d:IsA("BasePart") and d.Transparency < 0.95 then
+                return true
+            end
+        end
+        return false
+    end
+    return false
+end
+
+local function isRealSpiritBox(obj)
+    if isPlayerOrCharacter(obj) then return false end
+    local n = string.lower(obj.Name)
+    if n:find("spiritbox") or n:find("spirit_box") or n:find("spirit box") then
+        if obj:GetAttribute("Response") == true or obj:GetAttribute("Answered") == true or obj:GetAttribute("Triggered") == true then
+            return true
+        end
+        for _, d in ipairs(obj:GetDescendants()) do
+            if (d:IsA("BoolValue") or d:IsA("StringValue")) and (string.lower(d.Name):find("response") or string.lower(d.Name):find("speak") or string.lower(d.Name):find("reply")) then
+                if (d:IsA("BoolValue") and d.Value == true) or (d:IsA("StringValue") and d.Value ~= "") then
+                    return true
+                end
+            elseif d:IsA("Sound") and d.IsPlaying then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function isRealWriting(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    local n = string.lower(obj.Name)
+    if n:find("writing") or n:find("ghostbook") or n:find("written") or n:find("journal") then
+        if obj:GetAttribute("Written") == true or obj:GetAttribute("HasWriting") == true then
+            return true
+        end
+        for _, d in ipairs(obj:GetDescendants()) do
+            if d:IsA("Decal") or d:IsA("Texture") then
+                local dn = string.lower(d.Name)
+                if (dn:find("write") or dn:find("written") or dn:find("draw") or dn:find("mark") or dn:find("page")) and d.Transparency < 0.95 then
+                    return true
+                end
+            elseif d:IsA("BoolValue") and string.lower(d.Name):find("writ") and d.Value == true then
+                return true
+            end
+        end
+        if n:find("written") then
+            return isActiveVisualVisible(obj)
+        end
+    end
+    return false
+end
+
+local function isRealLaserProjector(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    local n = string.lower(obj.Name)
+    if n:find("laser") or n:find("projector") or n:find("dots") then
+        if obj:GetAttribute("Detected") == true or obj:GetAttribute("GhostSeen") == true or obj:GetAttribute("Triggered") == true then
+            return true
+        end
+        for _, d in ipairs(obj:GetDescendants()) do
+            if d:IsA("BoolValue") and (string.lower(d.Name):find("detect") or string.lower(d.Name):find("seen") or string.lower(d.Name):find("ghost")) and d.Value == true then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function isRealWither(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    local n = string.lower(obj.Name)
+    if n:find("wither") or n:find("withered") or n:find("wilted") then
+        if obj:GetAttribute("Withered") == true or obj:GetAttribute("IsWithered") == true then
+            return true
+        end
+        for _, d in ipairs(obj:GetDescendants()) do
+            if d:IsA("BoolValue") and string.lower(d.Name):find("wither") and d.Value == true then
+                return true
+            end
+        end
+        if n:find("withered") or n:find("wilted") then
+            return isActiveVisualVisible(obj)
+        end
+        if obj:IsA("BasePart") and obj.Transparency < 0.95 then
+            local col = obj.Color
+            if col.R < 0.35 and col.G < 0.35 and col.B < 0.35 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function readGameData()
     local data = {
         handprints = false,
@@ -319,9 +527,9 @@ local function readGameData()
         wither = false,
         emf = 0,
         temp = nil,
-        ghostType = "Unknown",
-        gender = nil,
-        age = nil,
+        ghostType = "None",
+        gender = "None",
+        age = "None",
         favRoom = "None",
         curRoom = "None",
         difficulty = nil,
@@ -418,18 +626,25 @@ local function readGameData()
     end
 
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        local n = string.lower(obj.Name)
-        if n:find("handprint") or n:find("fingerprint") then
+        if isRealHandprints(obj) then
             data.handprints = true
-        elseif n:find("orb") then
+        end
+        if isRealSpiritBox(obj) then
+            data.spirit = true
+        end
+        if isRealGhostOrb(obj) then
             data.orb = true
-        elseif n:find("writing") or n:find("ghostbook") then
+        end
+        if isRealWriting(obj) then
             data.writing = true
-        elseif n:find("laser") or n:find("projector") or n:find("dots") then
+        end
+        if isRealLaserProjector(obj) then
             data.laser = true
-        elseif n:find("wither") then
+        end
+        if isRealWither(obj) then
             data.wither = true
-        elseif n:find("emf") then
+        end
+        if not isMapStructure(obj) and string.lower(obj.Name):find("emf") then
             local lvl = tonumber(obj.Name:match("%d+")) or obj:GetAttribute("EMF") or 0
             if type(lvl) == "number" and lvl > data.emf then
                 data.emf = math.clamp(lvl, 0, 5)
@@ -460,21 +675,14 @@ local function ensureEspFolder(cat)
     return espFolders[cat]
 end
 
-local function isGameItem(obj)
-    if isPlayerOrCharacter(obj) then return false end
-    if obj:IsDescendantOf(MainGui) or obj:IsDescendantOf(EspGui) then return false end
-    if not (obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Tool")) then return false end
+local function isPickupItem(obj)
+    if isPlayerOrCharacter(obj) or isMapStructure(obj) then return false end
+    if not (obj:IsA("Tool") or obj:IsA("Model") or obj:IsA("BasePart")) then return false end
 
-    local n = string.lower(obj.Name)
-    local keywords = {
-        "flashlight", "camera", "therm", "emf", "book", "writing", "spirit", "box",
-        "lighter", "crucifix", "salt", "projector", "dots", "uv", "candle", "smudge",
-        "incense", "tripod", "sanity", "key", "fuse", "breaker", "item", "tool", "gear",
-        "equipment", "sensor", "motion", "sound", "parabolic", "video"
-    }
-    for _, kw in ipairs(keywords) do
-        if n:find(kw, 1, true) then
-            return true
+    if obj:IsA("BasePart") then
+        local parentModel = obj:FindFirstAncestorOfClass("Model")
+        if parentModel and isPickupItem(parentModel) then
+            return false
         end
     end
 
@@ -482,11 +690,23 @@ local function isGameItem(obj)
         return true
     end
 
+    local n = string.lower(obj.Name)
+    local itemKeywords = {
+        "flashlight", "camera", "therm", "emf", "book", "writing", "spirit", "box",
+        "lighter", "crucifix", "salt", "projector", "dots", "uv", "candle", "smudge",
+        "incense", "tripod", "sanity", "key", "fuse", "breaker", "sensor", "motion",
+        "sound", "parabolic", "video", "battery", "pill", "pills", "cursed", "ouija",
+        "tarot", "mirror", "doll", "musicbox", "voodoo", "bone"
+    }
+    for _, kw in ipairs(itemKeywords) do
+        if n:find(kw, 1, true) then
+            return isActiveVisualVisible(obj)
+        end
+    end
+
     if obj:FindFirstChildWhichIsA("ProximityPrompt", true) or obj:FindFirstChildWhichIsA("ClickDetector", true) then
-        local parent = obj.Parent
-        local pName = parent and string.lower(parent.Name) or ""
-        if not (pName:find("door") or pName:find("light") or pName:find("car") or pName:find("truck") or pName:find("wall") or pName:find("floor")) then
-            return true
+        if not n:find("door") and not n:find("light") and not n:find("switch") and not n:find("button") then
+            return isActiveVisualVisible(obj)
         end
     end
 
@@ -896,9 +1116,7 @@ task.spawn(function()
             evTemp.TextColor3 = Theme.Red
         end
 
-        local genderStr = info.gender or "None"
-        local ageStr = info.age or "None"
-        ghostMetaLbl.Text = string.format("Ghost: %s (%s) | Age %s | Favorite room: %s", info.ghostType, genderStr, ageStr, info.favRoom)
+        ghostMetaLbl.Text = string.format("Ghost: %s (%s) | Age %s | Favorite room: %s", info.ghostType, info.gender, info.age, info.favRoom)
         currentRoomLbl.Text = string.format("Current room: %s", info.curRoom)
 
         if info.difficulty then
@@ -925,7 +1143,7 @@ task.spawn(function()
         end
 
         if State.ItemEsp then
-            rebuildCategoryEsp("item", isGameItem, function() return Theme.Yellow end, function(o, d)
+            rebuildCategoryEsp("item", isPickupItem, function() return Theme.Yellow end, function(o, d)
                 return string.format("📦 %s [%dm]", o.Name, d)
             end)
         end
@@ -941,9 +1159,8 @@ task.spawn(function()
 
         if State.EvidenceEsp then
             rebuildCategoryEsp("evidence", function(o)
-                if isPlayerOrCharacter(o) then return false end
-                local n = string.lower(o.Name)
-                return n:find("handprint") or n:find("fingerprint") or n:find("orb") or n:find("writing") or n:find("bone") or n:find("wither")
+                if isPlayerOrCharacter(o) or isMapStructure(o) then return false end
+                return isRealHandprints(o) or isRealGhostOrb(o) or isRealWriting(o) or isRealWither(o) or isRealLaserProjector(o)
             end, function() return Theme.Cyan end, function(o, d)
                 return string.format("🔍 %s [%dm]", o.Name, d)
             end)
