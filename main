@@ -5,7 +5,6 @@ local CoreGui = cloneref(game:GetService("CoreGui"))
 local RunService = cloneref(game:GetService("RunService"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
 local TweenService = cloneref(game:GetService("TweenService"))
-local VirtualInputManager = cloneref(game:GetService("VirtualInputManager"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local Lighting = cloneref(game:GetService("Lighting"))
 
@@ -42,14 +41,12 @@ local Theme = {
     Bg = Color3.fromRGB(10, 10, 16),
     Panel = Color3.fromRGB(18, 18, 28),
     Btn = Color3.fromRGB(28, 28, 42),
-    BtnActive = Color3.fromRGB(0, 145, 175),
     Cyan = Color3.fromRGB(0, 229, 255),
     Purple = Color3.fromRGB(170, 80, 255),
     Red = Color3.fromRGB(255, 65, 85),
     Green = Color3.fromRGB(65, 220, 130),
     Yellow = Color3.fromRGB(255, 195, 65),
     Text = Color3.fromRGB(240, 242, 250),
-    Sub = Color3.fromRGB(155, 160, 185),
 }
 
 local MainGui = Instance.new("ScreenGui")
@@ -193,7 +190,7 @@ ghostMetaLbl.Size = UDim2.new(1, -8, 0, 18)
 ghostMetaLbl.Position = UDim2.fromOffset(4, 146)
 ghostMetaLbl.BackgroundTransparency = 1
 ghostMetaLbl.Font = Enum.Font.GothamBold
-ghostMetaLbl.Text = "Ghost: ... | Age ... | Favorite room: ..."
+ghostMetaLbl.Text = "Ghost: None | Age None | Favorite room: None"
 ghostMetaLbl.TextColor3 = Theme.Text
 ghostMetaLbl.TextSize = 12
 ghostMetaLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -205,7 +202,7 @@ currentRoomLbl.Size = UDim2.new(1, -8, 0, 18)
 currentRoomLbl.Position = UDim2.fromOffset(4, 164)
 currentRoomLbl.BackgroundTransparency = 1
 currentRoomLbl.Font = Enum.Font.GothamBold
-currentRoomLbl.Text = "Current room: ..."
+currentRoomLbl.Text = "Current room: None"
 currentRoomLbl.TextColor3 = Theme.Text
 currentRoomLbl.TextSize = 12
 currentRoomLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -263,19 +260,184 @@ local State = {
 
 local function getHRP(model)
     if not model then return nil end
-    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+    return model:FindFirstChild("HumanoidRootPart")
+        or model:FindFirstChild("Torso")
+        or model:FindFirstChild("UpperTorso")
+        or model.PrimaryPart
+        or model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function isPlayerOrCharacter(inst)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character and (inst == plr.Character or inst:IsDescendantOf(plr.Character)) then
+            return true
+        end
+    end
+    return false
 end
 
 local function findGhostModel()
+    local candidates = {}
+    for _, folderName in ipairs({ "Ghost", "Ghosts", "Entity", "Entities", "Monster", "Monsters", "AI", "NPCs" }) do
+        local f = Workspace:FindFirstChild(folderName)
+        if f then
+            for _, obj in ipairs(f:GetDescendants()) do
+                if obj:IsA("Model") and not isPlayerOrCharacter(obj) and getHRP(obj) then
+                    table.insert(candidates, obj)
+                end
+            end
+        end
+    end
+    if #candidates > 0 then return candidates[1] end
+
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) then
-            local lower = string.lower(obj.Name)
-            if lower:find("ghost") or lower:find("demon") or lower:find("spirit") or lower:find("entity") or lower:find("phantom") or obj:GetAttribute("IsGhost") == true then
-                return obj
+        if obj:IsA("Model") and not isPlayerOrCharacter(obj) then
+            local n = string.lower(obj.Name)
+            local hasGhostAttr = obj:GetAttribute("GhostType") ~= nil
+                or obj:GetAttribute("IsGhost") == true
+                or obj:GetAttribute("Ghost") == true
+                or obj:GetAttribute("FavoriteRoom") ~= nil
+                or obj:GetAttribute("GhostRoom") ~= nil
+                or obj:GetAttribute("CurrentRoom") ~= nil
+            if hasGhostAttr or n:find("ghost") or n:find("demon") or n:find("spirit") or n:find("entity") or n:find("phantom") or n:find("wraith") or n:find("banshee") or n:find("shade") then
+                if getHRP(obj) then
+                    return obj
+                end
             end
         end
     end
     return nil
+end
+
+local function readGameData()
+    local data = {
+        handprints = false,
+        spirit = false,
+        orb = false,
+        writing = false,
+        laser = false,
+        wither = false,
+        emf = 0,
+        temp = nil,
+        ghostType = "Unknown",
+        gender = nil,
+        age = nil,
+        favRoom = "None",
+        curRoom = "None",
+        difficulty = nil,
+    }
+
+    local sources = {}
+    local ghost = findGhostModel()
+    if ghost then table.insert(sources, ghost) end
+
+    for _, folderName in ipairs({ "GhostData", "GameData", "MatchData", "RoomData", "Evidence", "Evidences", "Round", "GameState" }) do
+        local f = Workspace:FindFirstChild(folderName) or ReplicatedStorage:FindFirstChild(folderName)
+        if f then table.insert(sources, f) end
+    end
+
+    for _, s in ipairs(sources) do
+        local attrs = s:GetAttributes()
+        for k, v in pairs(attrs) do
+            local lk = string.lower(k)
+            if lk:find("handprint") or lk:find("fingerprint") then
+                if v == true then data.handprints = true end
+            elseif lk:find("spirit") then
+                if v == true then data.spirit = true end
+            elseif lk:find("orb") then
+                if v == true then data.orb = true end
+            elseif lk:find("writing") or lk:find("book") then
+                if v == true then data.writing = true end
+            elseif lk:find("laser") or lk:find("projector") or lk:find("dots") then
+                if v == true then data.laser = true end
+            elseif lk:find("wither") then
+                if v == true then data.wither = true end
+            elseif lk == "emf" or lk:find("emflevel") then
+                if type(v) == "number" then data.emf = math.max(data.emf, v) end
+            elseif lk == "temperature" or lk == "temp" or lk:find("roomtemp") then
+                if type(v) == "number" then data.temp = v end
+            elseif lk:find("ghosttype") or lk == "type" or lk == "ghost" then
+                if type(v) == "string" and v ~= "" then data.ghostType = v end
+            elseif lk == "gender" or lk == "sex" then
+                if type(v) == "string" and v ~= "" then data.gender = v end
+            elseif lk == "age" then
+                if v ~= nil and tostring(v) ~= "" then data.age = tostring(v) end
+            elseif lk:find("favorite") or lk:find("favroom") or lk:find("ghostroom") then
+                if type(v) == "string" and v ~= "" then data.favRoom = v end
+            elseif lk:find("currentroom") or lk == "room" then
+                if type(v) == "string" and v ~= "" then data.curRoom = v end
+            elseif lk:find("difficult") or lk == "mode" then
+                if type(v) == "string" and v ~= "" then data.difficulty = v end
+            end
+        end
+
+        for _, desc in ipairs(s:GetDescendants()) do
+            if desc:IsA("ValueBase") then
+                local ln = string.lower(desc.Name)
+                local val = desc.Value
+                if ln:find("handprint") or ln:find("fingerprint") then
+                    if val == true then data.handprints = true end
+                elseif ln:find("spirit") then
+                    if val == true then data.spirit = true end
+                elseif ln:find("orb") then
+                    if val == true then data.orb = true end
+                elseif ln:find("writing") or ln:find("book") then
+                    if val == true then data.writing = true end
+                elseif ln:find("laser") or ln:find("projector") or ln:find("dots") then
+                    if val == true then data.laser = true end
+                elseif ln:find("wither") then
+                    if val == true then data.wither = true end
+                elseif ln == "emf" or ln:find("emflevel") then
+                    if type(val) == "number" then data.emf = math.max(data.emf, val) end
+                elseif ln == "temperature" or ln == "temp" then
+                    if type(val) == "number" then data.temp = val end
+                elseif ln:find("ghosttype") or ln == "type" then
+                    if type(val) == "string" and val ~= "" then data.ghostType = val end
+                elseif ln == "gender" then
+                    if type(val) == "string" and val ~= "" then data.gender = val end
+                elseif ln == "age" then
+                    if tostring(val) ~= "" then data.age = tostring(val) end
+                elseif ln:find("favorite") or ln:find("favroom") or ln:find("ghostroom") then
+                    if type(val) == "string" and val ~= "" then data.favRoom = val end
+                elseif ln:find("currentroom") or ln == "room" then
+                    if type(val) == "string" and val ~= "" then data.curRoom = val end
+                elseif ln:find("difficult") then
+                    if type(val) == "string" and val ~= "" then data.difficulty = val end
+                end
+            end
+        end
+    end
+
+    for _, valObj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if valObj:IsA("ValueBase") then
+            local ln = string.lower(valObj.Name)
+            if (ln:find("difficult") or ln == "gamemode") and type(valObj.Value) == "string" and valObj.Value ~= "" then
+                data.difficulty = valObj.Value
+            end
+        end
+    end
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local n = string.lower(obj.Name)
+        if n:find("handprint") or n:find("fingerprint") then
+            data.handprints = true
+        elseif n:find("orb") then
+            data.orb = true
+        elseif n:find("writing") or n:find("ghostbook") then
+            data.writing = true
+        elseif n:find("laser") or n:find("projector") or n:find("dots") then
+            data.laser = true
+        elseif n:find("wither") then
+            data.wither = true
+        elseif n:find("emf") then
+            local lvl = tonumber(obj.Name:match("%d+")) or obj:GetAttribute("EMF") or 0
+            if type(lvl) == "number" and lvl > data.emf then
+                data.emf = math.clamp(lvl, 0, 5)
+            end
+        end
+    end
+
+    return data
 end
 
 local espFolders = {}
@@ -298,16 +460,54 @@ local function ensureEspFolder(cat)
     return espFolders[cat]
 end
 
+local function isGameItem(obj)
+    if isPlayerOrCharacter(obj) then return false end
+    if obj:IsDescendantOf(MainGui) or obj:IsDescendantOf(EspGui) then return false end
+    if not (obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Tool")) then return false end
+
+    local n = string.lower(obj.Name)
+    local keywords = {
+        "flashlight", "camera", "therm", "emf", "book", "writing", "spirit", "box",
+        "lighter", "crucifix", "salt", "projector", "dots", "uv", "candle", "smudge",
+        "incense", "tripod", "sanity", "key", "fuse", "breaker", "item", "tool", "gear",
+        "equipment", "sensor", "motion", "sound", "parabolic", "video"
+    }
+    for _, kw in ipairs(keywords) do
+        if n:find(kw, 1, true) then
+            return true
+        end
+    end
+
+    if obj:IsA("Tool") then
+        return true
+    end
+
+    if obj:FindFirstChildWhichIsA("ProximityPrompt", true) or obj:FindFirstChildWhichIsA("ClickDetector", true) then
+        local parent = obj.Parent
+        local pName = parent and string.lower(parent.Name) or ""
+        if not (pName:find("door") or pName:find("light") or pName:find("car") or pName:find("truck") or pName:find("wall") or pName:find("floor")) then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function rebuildCategoryEsp(cat, predicate, colorFn, textFn)
     clearEsp(cat)
     local folder = ensureEspFolder(cat)
     local char = LocalPlayer.Character
     local myHrp = getHRP(char)
+    local seen = {}
 
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if predicate(obj) then
-            local part = obj:IsA("BasePart") and obj or getHRP(obj) or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart", true)
-            if part and part.Parent and (not char or not part:IsDescendantOf(char)) then
+            local part = obj:IsA("BasePart") and obj
+                or getHRP(obj)
+                or obj:FindFirstChild("Handle")
+                or obj:FindFirstChildWhichIsA("BasePart", true)
+            if part and part.Parent and not seen[part] and (not char or not part:IsDescendantOf(char)) then
+                seen[part] = true
                 local dist = myHrp and math.floor((part.Position - myHrp.Position).Magnitude) or 0
                 local col = colorFn(obj)
                 local txt = textFn(obj, dist)
@@ -315,7 +515,7 @@ local function rebuildCategoryEsp(cat, predicate, colorFn, textFn)
                 local bb = Instance.new("BillboardGui")
                 bb.Adornee = part
                 bb.AlwaysOnTop = true
-                bb.Size = UDim2.fromOffset(180, 28)
+                bb.Size = UDim2.fromOffset(185, 28)
                 bb.StudsOffset = Vector3.new(0, 2, 0)
                 bb.Parent = folder
 
@@ -352,7 +552,7 @@ makeActionBtn(Page1, "Hunt escape", 0.25, 0, 188, 0.23, -4, 30, function(_, btn)
     local ghost = findGhostModel()
     local gHrp = getHRP(ghost)
     if hrp and gHrp then
-        local awayDir = (hrp.Position - gHrp.Position)
+        local awayDir = hrp.Position - gHrp.Position
         awayDir = Vector3.new(awayDir.X, 0, awayDir.Z)
         if awayDir.Magnitude < 0.1 then awayDir = Vector3.new(0, 0, -1) else awayDir = awayDir.Unit end
         hrp.CFrame = CFrame.new(hrp.Position + awayDir * 45 + Vector3.new(0, 2, 0))
@@ -366,11 +566,10 @@ end)
 
 makeActionBtn(Page1, "Place stuffs near ghost", 0.5, 0, 188, 0.23, -4, 30, function(_, btn)
     local char = LocalPlayer.Character
-    local hrp = getHRP(char)
     local ghost = findGhostModel()
     local gHrp = getHRP(ghost)
     local bp = LocalPlayer:FindFirstChild("Backpack")
-    if hrp and gHrp and bp then
+    if char and gHrp and bp then
         for _, tool in ipairs(bp:GetChildren()) do
             if tool:IsA("Tool") then
                 local n = string.lower(tool.Name)
@@ -533,7 +732,7 @@ makeActionBtn(Page2, "Players esp", 0.34, 0, 108, 0.31, -4, 34, function(on)
     return on
 end)
 
-local photoBtn = makeActionBtn(Page2, "Take 3 stars photo\n(0/6)", 0.68, 0, 108, 0.32, 0, 34, function(_, btn)
+makeActionBtn(Page2, "Take 3 stars photo\n(0/6)", 0.68, 0, 108, 0.32, 0, 34, function(_, btn)
     State.PhotoCount = (State.PhotoCount + 1) % 7
     btn.Text = string.format("Take 3 stars photo\n(%d/6)", State.PhotoCount)
     local char = LocalPlayer.Character
@@ -672,69 +871,39 @@ end))
 
 task.spawn(function()
     while env.ZenxhubDemonologyCleanup do
-        local found = {
-            handprints = false,
-            spirit = false,
-            orb = false,
-            writing = false,
-            laser = false,
-            wither = false,
-            emf = 0,
-            temp = 0,
-            favRoom = "...",
-            curRoom = "...",
-        }
-
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            local n = string.lower(obj.Name)
-            if n:find("handprint") or n:find("fingerprint") then
-                found.handprints = true
-            elseif n:find("orb") then
-                found.orb = true
-            elseif n:find("writing") or n:find("ghostbook") or n:find("book") then
-                found.writing = true
-            elseif n:find("laser") or n:find("projector") or n:find("dots") then
-                found.laser = true
-            elseif n:find("wither") or n:find("salt") or n:find("bone") then
-                found.wither = true
-            elseif n:find("emf") then
-                local lvl = tonumber(obj.Name:match("%d+")) or obj:GetAttribute("EMF") or 0
-                if type(lvl) == "number" and lvl > found.emf then
-                    found.emf = math.clamp(lvl, 0, 5)
-                end
-            end
-        end
-
-        local ghost = findGhostModel()
-        if ghost then
-            local fav = ghost:GetAttribute("FavoriteRoom") or ghost:GetAttribute("GhostRoom") or ghost:GetAttribute("Room")
-            local cur = ghost:GetAttribute("CurrentRoom") or ghost:GetAttribute("Room")
-            if type(fav) == "string" and fav ~= "" then found.favRoom = fav end
-            if type(cur) == "string" and cur ~= "" then found.curRoom = cur end
-            local gTemp = ghost:GetAttribute("Temperature") or ghost:GetAttribute("Temp")
-            if type(gTemp) == "number" then found.temp = math.floor(gTemp) end
-        end
+        local info = readGameData()
 
         local function setEv(lbl, prefix, isYes)
             lbl.Text = prefix .. (isYes and "Yes" or "No")
             lbl.TextColor3 = isYes and Theme.Green or Theme.Red
         end
 
-        setEv(evHandprints, "Handprints: ", found.handprints)
-        setEv(evSpiritBox, "Spirit Box: ", found.spirit)
-        setEv(evGhostOrb, "Ghost Orb: ", found.orb)
-        setEv(evWriting, "Ghost Writing: ", found.writing)
-        setEv(evLaser, "Laser Projector: ", found.laser)
-        setEv(evWither, "Wither: ", found.wither)
+        setEv(evHandprints, "Handprints: ", info.handprints)
+        setEv(evSpiritBox, "Spirit Box: ", info.spirit)
+        setEv(evGhostOrb, "Ghost Orb: ", info.orb)
+        setEv(evWriting, "Ghost Writing: ", info.writing)
+        setEv(evLaser, "Laser Projector: ", info.laser)
+        setEv(evWither, "Wither: ", info.wither)
 
-        evEmf.Text = "EMF level: " .. tostring(found.emf)
-        evEmf.TextColor3 = found.emf >= 5 and Theme.Green or (found.emf > 0 and Theme.Yellow or Theme.Red)
+        evEmf.Text = "EMF level: " .. tostring(info.emf)
+        evEmf.TextColor3 = info.emf >= 5 and Theme.Green or (info.emf > 0 and Theme.Yellow or Theme.Red)
 
-        evTemp.Text = "Temperature: " .. tostring(found.temp) .. "C"
-        evTemp.TextColor3 = found.temp <= 0 and Theme.Cyan or Theme.Yellow
+        if info.temp ~= nil then
+            evTemp.Text = "Temperature: " .. tostring(math.floor(info.temp)) .. "C"
+            evTemp.TextColor3 = info.temp <= 0 and Theme.Cyan or Theme.Yellow
+        else
+            evTemp.Text = "Temperature: None"
+            evTemp.TextColor3 = Theme.Red
+        end
 
-        ghostMetaLbl.Text = string.format("Ghost: Unknown | Age ?? | Favorite room: %s", found.favRoom)
-        currentRoomLbl.Text = string.format("Current room: %s", found.curRoom)
+        local genderStr = info.gender or "None"
+        local ageStr = info.age or "None"
+        ghostMetaLbl.Text = string.format("Ghost: %s (%s) | Age %s | Favorite room: %s", info.ghostType, genderStr, ageStr, info.favRoom)
+        currentRoomLbl.Text = string.format("Current room: %s", info.curRoom)
+
+        if info.difficulty then
+            DiffLbl.Text = "Difficulty: " .. info.difficulty
+        end
 
         if State.AutoSpirit then
             pcall(function()
@@ -748,19 +917,15 @@ task.spawn(function()
 
         if State.GhostEsp then
             rebuildCategoryEsp("ghost", function(o)
-                return o:IsA("Model") and o ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(o)
-                    and (string.lower(o.Name):find("ghost") or string.lower(o.Name):find("demon") or string.lower(o.Name):find("spirit") or o:GetAttribute("IsGhost") == true)
+                return o:IsA("Model") and not isPlayerOrCharacter(o)
+                    and (o == findGhostModel() or string.lower(o.Name):find("ghost") or string.lower(o.Name):find("demon") or string.lower(o.Name):find("spirit") or o:GetAttribute("IsGhost") == true)
             end, function() return Theme.Red end, function(o, d)
                 return string.format("👻 %s [%dm]", o.Name, d)
             end)
         end
 
         if State.ItemEsp then
-            rebuildCategoryEsp("item", function(o)
-                if not (o:IsA("BasePart") or o:IsA("Model") or o:IsA("Tool")) then return false end
-                local n = string.lower(o.Name)
-                return n:find("flashlight") or n:find("camera") or n:find("therm") or n:find("emf") or n:find("book") or n:find("spirit") or n:find("lighter") or n:find("crucifix") or n:find("salt")
-            end, function() return Theme.Yellow end, function(o, d)
+            rebuildCategoryEsp("item", isGameItem, function() return Theme.Yellow end, function(o, d)
                 return string.format("📦 %s [%dm]", o.Name, d)
             end)
         end
@@ -776,8 +941,9 @@ task.spawn(function()
 
         if State.EvidenceEsp then
             rebuildCategoryEsp("evidence", function(o)
+                if isPlayerOrCharacter(o) then return false end
                 local n = string.lower(o.Name)
-                return n:find("handprint") or n:find("fingerprint") or n:find("orb") or n:find("writing") or n:find("bone")
+                return n:find("handprint") or n:find("fingerprint") or n:find("orb") or n:find("writing") or n:find("bone") or n:find("wither")
             end, function() return Theme.Cyan end, function(o, d)
                 return string.format("🔍 %s [%dm]", o.Name, d)
             end)
