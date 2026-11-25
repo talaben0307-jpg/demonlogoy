@@ -5,6 +5,8 @@ local CoreGui = cloneref(game:GetService("CoreGui"))
 local RunService = cloneref(game:GetService("RunService"))
 local UserInputService = cloneref(game:GetService("UserInputService"))
 local TweenService = cloneref(game:GetService("TweenService"))
+local VirtualInputManager = cloneref(game:GetService("VirtualInputManager"))
+local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local Lighting = cloneref(game:GetService("Lighting"))
 
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -25,7 +27,7 @@ local function getGuiParent()
 end
 
 local parentGui = getGuiParent()
-local connections, cleanups, spinners = {}, {}, {}
+local connections, cleanups = {}, {}
 
 local function track(conn)
     table.insert(connections, conn)
@@ -36,6 +38,585 @@ local function onCleanup(fn)
     table.insert(cleanups, fn)
 end
 
+local Theme = {
+    Bg = Color3.fromRGB(10, 10, 16),
+    Panel = Color3.fromRGB(18, 18, 28),
+    Btn = Color3.fromRGB(28, 28, 42),
+    BtnActive = Color3.fromRGB(0, 145, 175),
+    Cyan = Color3.fromRGB(0, 229, 255),
+    Purple = Color3.fromRGB(170, 80, 255),
+    Red = Color3.fromRGB(255, 65, 85),
+    Green = Color3.fromRGB(65, 220, 130),
+    Yellow = Color3.fromRGB(255, 195, 65),
+    Text = Color3.fromRGB(240, 242, 250),
+    Sub = Color3.fromRGB(155, 160, 185),
+}
+
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "ZenxhubDemonologyUI"
+MainGui.ResetOnSpawn = false
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+MainGui.DisplayOrder = 100
+MainGui.Parent = parentGui
+
+local EspGui = Instance.new("ScreenGui")
+EspGui.Name = "ZenxhubDemonologyESP"
+EspGui.ResetOnSpawn = false
+EspGui.IgnoreGuiInset = true
+EspGui.Parent = parentGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "Main"
+MainFrame.Size = UDim2.fromOffset(470, 385)
+MainFrame.Position = UDim2.new(0.5, -235, 0.5, -192)
+MainFrame.BackgroundColor3 = Theme.Bg
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = MainGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local mainStroke = Instance.new("UIStroke", MainFrame)
+mainStroke.Thickness = 1.6
+mainStroke.Color = Theme.Cyan
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 34)
+TopBar.BackgroundColor3 = Theme.Panel
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 10)
+
+local TitleLbl = Instance.new("TextLabel")
+TitleLbl.Size = UDim2.new(1, -110, 1, 0)
+TitleLbl.Position = UDim2.fromOffset(12, 0)
+TitleLbl.BackgroundTransparency = 1
+TitleLbl.Font = Enum.Font.GothamBold
+TitleLbl.Text = "Demonology Evidence UI Pro | Zenxhub"
+TitleLbl.TextColor3 = Theme.Green
+TitleLbl.TextSize = 13
+TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+TitleLbl.Parent = TopBar
+
+local function makeTopBtn(text, xOffset, bgColor, txtColor)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.fromOffset(26, 22)
+    b.Position = UDim2.new(1, xOffset, 0.5, -11)
+    b.BackgroundColor3 = bgColor
+    b.Font = Enum.Font.GothamBold
+    b.Text = text
+    b.TextColor3 = txtColor
+    b.TextSize = 12
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = false
+    b.Parent = TopBar
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+    return b
+end
+
+local CloseBtn = makeTopBtn("X", -10, Theme.Red, Color3.new(1, 1, 1))
+local MinBtn = makeTopBtn("_", -40, Theme.Cyan, Color3.fromRGB(10, 10, 16))
+local CopyBtn = makeTopBtn("🔗", -70, Theme.Btn, Theme.Text)
+
+local BodyHolder = Instance.new("Frame")
+BodyHolder.Size = UDim2.new(1, -16, 1, -78)
+BodyHolder.Position = UDim2.fromOffset(8, 40)
+BodyHolder.BackgroundTransparency = 1
+BodyHolder.Parent = MainFrame
+
+local Page1 = Instance.new("Frame")
+Page1.Size = UDim2.fromScale(1, 1)
+Page1.BackgroundTransparency = 1
+Page1.Visible = true
+Page1.Parent = BodyHolder
+
+local Page2 = Instance.new("Frame")
+Page2.Size = UDim2.fromScale(1, 1)
+Page2.BackgroundTransparency = 1
+Page2.Visible = false
+Page2.Parent = BodyHolder
+
+local BottomBar = Instance.new("Frame")
+BottomBar.Size = UDim2.new(1, -16, 0, 30)
+BottomBar.Position = UDim2.new(0, 8, 1, -36)
+BottomBar.BackgroundTransparency = 1
+BottomBar.Parent = MainFrame
+
+local DiffLbl = Instance.new("TextLabel")
+DiffLbl.Size = UDim2.new(0.45, 0, 1, 0)
+DiffLbl.BackgroundTransparency = 1
+DiffLbl.Font = Enum.Font.GothamBold
+DiffLbl.Text = "Difficulty: Normal"
+DiffLbl.TextColor3 = Theme.Text
+DiffLbl.TextSize = 13
+DiffLbl.TextXAlignment = Enum.TextXAlignment.Left
+DiffLbl.Parent = BottomBar
+
+local NextPageBtn = Instance.new("TextButton")
+NextPageBtn.Size = UDim2.new(0.52, 0, 1, 0)
+NextPageBtn.Position = UDim2.new(0.48, 0, 0, 0)
+NextPageBtn.BackgroundColor3 = Color3.new(1, 1, 1)
+NextPageBtn.Font = Enum.Font.GothamBold
+NextPageBtn.Text = "Next page"
+NextPageBtn.TextColor3 = Color3.fromRGB(10, 10, 16)
+NextPageBtn.TextSize = 13
+NextPageBtn.BorderSizePixel = 0
+NextPageBtn.AutoButtonColor = false
+NextPageBtn.Parent = BottomBar
+Instance.new("UICorner", NextPageBtn).CornerRadius = UDim.new(0, 5)
+
+local function makeEvLabel(parent, yPos, text, col)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1, 0, 0, 18)
+    l.Position = UDim2.fromOffset(4, yPos)
+    l.BackgroundTransparency = 1
+    l.Font = Enum.Font.GothamBold
+    l.Text = text
+    l.TextColor3 = col or Theme.Red
+    l.TextSize = 12
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = parent
+    return l
+end
+
+local evHandprints = makeEvLabel(Page1, 0, "Handprints: No", Theme.Red)
+local evSpiritBox = makeEvLabel(Page1, 18, "Spirit Box: No", Theme.Red)
+local evGhostOrb = makeEvLabel(Page1, 36, "Ghost Orb: No", Theme.Red)
+local evWriting = makeEvLabel(Page1, 54, "Ghost Writing: No", Theme.Red)
+local evLaser = makeEvLabel(Page1, 72, "Laser Projector: No", Theme.Red)
+local evWither = makeEvLabel(Page1, 90, "Wither: No", Theme.Red)
+local evEmf = makeEvLabel(Page1, 108, "EMF level: 0", Theme.Red)
+local evTemp = makeEvLabel(Page1, 126, "Temperature: 0C", Theme.Red)
+
+local ghostMetaLbl = Instance.new("TextLabel")
+ghostMetaLbl.Size = UDim2.new(1, -8, 0, 18)
+ghostMetaLbl.Position = UDim2.fromOffset(4, 146)
+ghostMetaLbl.BackgroundTransparency = 1
+ghostMetaLbl.Font = Enum.Font.GothamBold
+ghostMetaLbl.Text = "Ghost: ... | Age ... | Favorite room: ..."
+ghostMetaLbl.TextColor3 = Theme.Text
+ghostMetaLbl.TextSize = 12
+ghostMetaLbl.TextXAlignment = Enum.TextXAlignment.Left
+ghostMetaLbl.TextTruncate = Enum.TextTruncate.AtEnd
+ghostMetaLbl.Parent = Page1
+
+local currentRoomLbl = Instance.new("TextLabel")
+currentRoomLbl.Size = UDim2.new(1, -8, 0, 18)
+currentRoomLbl.Position = UDim2.fromOffset(4, 164)
+currentRoomLbl.BackgroundTransparency = 1
+currentRoomLbl.Font = Enum.Font.GothamBold
+currentRoomLbl.Text = "Current room: ..."
+currentRoomLbl.TextColor3 = Theme.Text
+currentRoomLbl.TextSize = 12
+currentRoomLbl.TextXAlignment = Enum.TextXAlignment.Left
+currentRoomLbl.TextTruncate = Enum.TextTruncate.AtEnd
+currentRoomLbl.Parent = Page1
+
+local function makeActionBtn(parent, text, xScale, xOff, yPos, wScale, wOff, hPx, callback)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(wScale, wOff, 0, hPx)
+    b.Position = UDim2.new(xScale, xOff, 0, yPos)
+    b.BackgroundColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(10, 10, 16)
+    b.TextSize = 11
+    b.TextWrapped = true
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = false
+    b.Parent = parent
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+
+    local active = false
+    local function setVisual(on)
+        active = on
+        b.BackgroundColor3 = on and Theme.Green or Color3.new(1, 1, 1)
+    end
+
+    b.MouseButton1Click:Connect(function()
+        if callback then
+            local nextState = not active
+            local ret = callback(nextState, b)
+            if type(ret) == "boolean" then
+                setVisual(ret)
+            elseif ret ~= "nottoggle" then
+                setVisual(nextState)
+            end
+        end
+    end)
+
+    return b, setVisual
+end
+
+local State = {
+    GhostEsp = false,
+    ItemEsp = false,
+    PlayersEsp = false,
+    EvidenceEsp = false,
+    Fullbright = false,
+    SpeedEnabled = false,
+    WalkSpeed = 20,
+    AutoSpirit = false,
+    PhotoCount = 0,
+    LightsOn = true,
+}
+
+local function getHRP(model)
+    if not model then return nil end
+    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function findGhostModel()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) then
+            local lower = string.lower(obj.Name)
+            if lower:find("ghost") or lower:find("demon") or lower:find("spirit") or lower:find("entity") or lower:find("phantom") or obj:GetAttribute("IsGhost") == true then
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+local espFolders = {}
+local function clearEsp(cat)
+    for k, f in pairs(espFolders) do
+        if not cat or k == cat then
+            pcall(function() f:Destroy() end)
+            espFolders[k] = nil
+        end
+    end
+end
+
+local function ensureEspFolder(cat)
+    if not espFolders[cat] then
+        local f = Instance.new("Folder")
+        f.Name = "ZX_ESP_" .. cat
+        f.Parent = EspGui
+        espFolders[cat] = f
+    end
+    return espFolders[cat]
+end
+
+local function rebuildCategoryEsp(cat, predicate, colorFn, textFn)
+    clearEsp(cat)
+    local folder = ensureEspFolder(cat)
+    local char = LocalPlayer.Character
+    local myHrp = getHRP(char)
+
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if predicate(obj) then
+            local part = obj:IsA("BasePart") and obj or getHRP(obj) or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart", true)
+            if part and part.Parent and (not char or not part:IsDescendantOf(char)) then
+                local dist = myHrp and math.floor((part.Position - myHrp.Position).Magnitude) or 0
+                local col = colorFn(obj)
+                local txt = textFn(obj, dist)
+
+                local bb = Instance.new("BillboardGui")
+                bb.Adornee = part
+                bb.AlwaysOnTop = true
+                bb.Size = UDim2.fromOffset(180, 28)
+                bb.StudsOffset = Vector3.new(0, 2, 0)
+                bb.Parent = folder
+
+                local lbl = Instance.new("TextLabel", bb)
+                lbl.Size = UDim2.fromScale(1, 1)
+                lbl.BackgroundTransparency = 1
+                lbl.Font = Enum.Font.GothamBold
+                lbl.Text = txt
+                lbl.TextColor3 = col
+                lbl.TextStrokeTransparency = 0.25
+                lbl.TextSize = 12
+
+                local hl = Instance.new("Highlight")
+                hl.Adornee = obj:IsA("Model") and obj or part
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.FillColor = col
+                hl.OutlineColor = Color3.new(1, 1, 1)
+                hl.FillTransparency = 0.55
+                hl.Parent = folder
+            end
+        end
+    end
+end
+
+makeActionBtn(Page1, "Ghost esp", 0, 0, 188, 0.23, -4, 30, function(on)
+    State.GhostEsp = on
+    if not on then clearEsp("ghost") end
+    return on
+end)
+
+makeActionBtn(Page1, "Hunt escape", 0.25, 0, 188, 0.23, -4, 30, function(_, btn)
+    local char = LocalPlayer.Character
+    local hrp = getHRP(char)
+    local ghost = findGhostModel()
+    local gHrp = getHRP(ghost)
+    if hrp and gHrp then
+        local awayDir = (hrp.Position - gHrp.Position)
+        awayDir = Vector3.new(awayDir.X, 0, awayDir.Z)
+        if awayDir.Magnitude < 0.1 then awayDir = Vector3.new(0, 0, -1) else awayDir = awayDir.Unit end
+        hrp.CFrame = CFrame.new(hrp.Position + awayDir * 45 + Vector3.new(0, 2, 0))
+    elseif hrp then
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, 12, 0)
+    end
+    btn.BackgroundColor3 = Theme.Cyan
+    task.delay(0.25, function() if btn.Parent then btn.BackgroundColor3 = Color3.new(1, 1, 1) end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page1, "Place stuffs near ghost", 0.5, 0, 188, 0.23, -4, 30, function(_, btn)
+    local char = LocalPlayer.Character
+    local hrp = getHRP(char)
+    local ghost = findGhostModel()
+    local gHrp = getHRP(ghost)
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if hrp and gHrp and bp then
+        for _, tool in ipairs(bp:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = string.lower(tool.Name)
+                if n:find("emf") or n:find("book") or n:find("write") or n:find("projector") or n:find("dots") or n:find("therm") or n:find("spirit") then
+                    tool.Parent = char
+                    pcall(function()
+                        if tool:FindFirstChild("Handle") then
+                            tool.Handle.CFrame = gHrp.CFrame * CFrame.new(0, 0, -3)
+                        end
+                    end)
+                end
+            end
+        end
+    end
+    btn.BackgroundColor3 = Theme.Cyan
+    task.delay(0.25, function() if btn.Parent then btn.BackgroundColor3 = Color3.new(1, 1, 1) end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page1, "Check speed: 1s", 0.75, 0, 188, 0.25, 0, 30, function(_, btn)
+    local ghost = findGhostModel()
+    local gHrp = getHRP(ghost)
+    if not gHrp then
+        btn.Text = "No ghost"
+        task.delay(1, function() if btn.Parent then btn.Text = "Check speed: 1s" end end)
+        return "nottoggle"
+    end
+    local p1 = gHrp.Position
+    task.wait(1)
+    local p2 = gHrp.Position
+    local spd = math.floor((p2 - p1).Magnitude * 10) / 10
+    btn.Text = "Spd: " .. tostring(spd)
+    task.delay(2, function() if btn.Parent then btn.Text = "Check speed: 1s" end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page1, "Turn on fuse", 0, 0, 226, 0.23, -4, 30, function(_, btn)
+    local char = LocalPlayer.Character
+    local hrp = getHRP(char)
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local n = string.lower(obj.Name)
+        if n:find("fuse") or n:find("breaker") or n:find("powerbox") then
+            local prompt = obj:IsA("ProximityPrompt") and obj or obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+            local click = obj:IsA("ClickDetector") and obj or obj:FindFirstChildWhichIsA("ClickDetector", true)
+            local targetPart = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+            if hrp and targetPart then
+                hrp.CFrame = targetPart.CFrame * CFrame.new(0, 0, 3)
+            end
+            if prompt and fireproximityprompt then pcall(fireproximityprompt, prompt) end
+            if click and fireclickdetector then pcall(fireclickdetector, click) end
+        end
+    end
+    btn.BackgroundColor3 = Theme.Cyan
+    task.delay(0.25, function() if btn.Parent then btn.BackgroundColor3 = Color3.new(1, 1, 1) end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page1, "Auto spirit box", 0.25, 0, 226, 0.23, -4, 30, function(on)
+    State.AutoSpirit = on
+    return on
+end)
+
+makeActionBtn(Page1, "Take a photo ghost", 0.5, 0, 226, 0.23, -4, 30, function(_, btn)
+    local char = LocalPlayer.Character
+    local bp = LocalPlayer:FindFirstChild("Backpack")
+    if char and bp then
+        for _, t in ipairs(bp:GetChildren()) do
+            if t:IsA("Tool") and (string.lower(t.Name):find("camera") or string.lower(t.Name):find("photo")) then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum:EquipTool(t) end
+                task.wait(0.1)
+                t:Activate()
+            end
+        end
+    end
+    btn.BackgroundColor3 = Theme.Cyan
+    task.delay(0.25, function() if btn.Parent then btn.BackgroundColor3 = Color3.new(1, 1, 1) end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page1, "Toggle all lights", 0.75, 0, 226, 0.25, 0, 30, function(on)
+    State.LightsOn = not on
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+            pcall(function() obj.Enabled = State.LightsOn end)
+        elseif obj:IsA("ClickDetector") and string.lower(obj.Parent.Name):find("light") then
+            if fireclickdetector then pcall(fireclickdetector, obj) end
+        elseif obj:IsA("ProximityPrompt") and string.lower(obj.Parent.Name):find("light") then
+            if fireproximityprompt then pcall(fireproximityprompt, obj) end
+        end
+    end
+    return on
+end)
+
+local energyTitleLbl = Instance.new("TextLabel")
+energyTitleLbl.Size = UDim2.new(1, 0, 0, 22)
+energyTitleLbl.Position = UDim2.fromOffset(4, 0)
+energyTitleLbl.BackgroundTransparency = 1
+energyTitleLbl.Font = Enum.Font.GothamBold
+energyTitleLbl.Text = "Player energy:"
+energyTitleLbl.TextColor3 = Theme.Cyan
+energyTitleLbl.TextSize = 15
+energyTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+energyTitleLbl.Parent = Page2
+
+local energyValLbl = Instance.new("TextLabel")
+energyValLbl.Size = UDim2.new(1, -8, 0, 22)
+energyValLbl.Position = UDim2.fromOffset(4, 22)
+energyValLbl.BackgroundTransparency = 1
+energyValLbl.Font = Enum.Font.GothamBold
+energyValLbl.Text = LocalPlayer.Name .. ": 100%"
+energyValLbl.TextColor3 = Theme.Text
+energyValLbl.TextSize = 14
+energyValLbl.TextXAlignment = Enum.TextXAlignment.Left
+energyValLbl.Parent = Page2
+
+local origAmbient = Lighting.Ambient
+local origBrightness = Lighting.Brightness
+local origGlobalShadows = Lighting.GlobalShadows
+local origFogEnd = Lighting.FogEnd
+
+makeActionBtn(Page2, "Full bright", 0, 0, 62, 0.31, -4, 34, function(on)
+    State.Fullbright = on
+    if not on then
+        Lighting.Ambient = origAmbient
+        Lighting.Brightness = origBrightness
+        Lighting.GlobalShadows = origGlobalShadows
+        Lighting.FogEnd = origFogEnd
+    end
+    return on
+end)
+
+makeActionBtn(Page2, "Load infinite yield", 0.34, 0, 62, 0.31, -4, 34, function(_, btn)
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source", true))()
+        end)
+    end)
+    btn.BackgroundColor3 = Theme.Cyan
+    task.delay(0.3, function() if btn.Parent then btn.BackgroundColor3 = Color3.new(1, 1, 1) end end)
+    return "nottoggle"
+end)
+
+makeActionBtn(Page2, "Speed: 20", 0.68, 0, 62, 0.32, 0, 34, function(on, btn)
+    State.SpeedEnabled = on
+    State.WalkSpeed = on and 26 or 16
+    btn.Text = "Speed: " .. tostring(State.WalkSpeed)
+    return on
+end)
+
+makeActionBtn(Page2, "Item esp", 0, 0, 108, 0.31, -4, 34, function(on)
+    State.ItemEsp = on
+    if not on then clearEsp("item") end
+    return on
+end)
+
+makeActionBtn(Page2, "Players esp", 0.34, 0, 108, 0.31, -4, 34, function(on)
+    State.PlayersEsp = on
+    if not on then clearEsp("player") end
+    return on
+end)
+
+local photoBtn = makeActionBtn(Page2, "Take 3 stars photo\n(0/6)", 0.68, 0, 108, 0.32, 0, 34, function(_, btn)
+    State.PhotoCount = (State.PhotoCount + 1) % 7
+    btn.Text = string.format("Take 3 stars photo\n(%d/6)", State.PhotoCount)
+    local char = LocalPlayer.Character
+    local cam = Workspace.CurrentCamera
+    local ghost = findGhostModel()
+    local gHrp = getHRP(ghost)
+    if char and cam and gHrp then
+        cam.CFrame = CFrame.lookAt(cam.CFrame.Position, gHrp.Position)
+    end
+    return "nottoggle"
+end)
+
+makeActionBtn(Page2, "Handprints, Orb\nesp", 0, 0, 154, 0.31, -4, 34, function(on)
+    State.EvidenceEsp = on
+    if not on then clearEsp("evidence") end
+    return on
+end)
+
+makeActionBtn(Page2, "Coming soon...", 0.34, 0, 154, 0.31, -4, 34, function()
+    return "nottoggle"
+end)
+
+makeActionBtn(Page2, "Coming soon...", 0.68, 0, 154, 0.32, 0, 34, function()
+    return "nottoggle"
+end)
+
+local pageIndex = 1
+NextPageBtn.MouseButton1Click:Connect(function()
+    if pageIndex == 1 then
+        pageIndex = 2
+        Page1.Visible = false
+        Page2.Visible = true
+        NextPageBtn.Text = "Previous page"
+    else
+        pageIndex = 1
+        Page2.Visible = false
+        Page1.Visible = true
+        NextPageBtn.Text = "Next page"
+    end
+end)
+
+local minimized = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    BodyHolder.Visible = not minimized
+    BottomBar.Visible = not minimized
+    MainFrame.Size = minimized and UDim2.fromOffset(470, 36) or UDim2.fromOffset(470, 385)
+end)
+
+CopyBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        pcall(setclipboard, "https://raw.githubusercontent.com/talaben0307-jpg/lineageeee/refs/heads/main/main")
+    end
+    CopyBtn.BackgroundColor3 = Theme.Green
+    task.delay(0.25, function() if CopyBtn.Parent then CopyBtn.BackgroundColor3 = Theme.Btn end end)
+end)
+
+track(UserInputService.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.Z then
+        MainGui.Enabled = not MainGui.Enabled
+    end
+end))
+
+local dragging, dragStart, startPos = false, nil, nil
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+track(UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end))
+track(UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end))
+
 env.ZenxhubDemonologyCleanup = function()
     for _, c in ipairs(connections) do
         pcall(function() c:Disconnect() end)
@@ -45,825 +626,15 @@ env.ZenxhubDemonologyCleanup = function()
         pcall(fn)
     end
     table.clear(cleanups)
-    table.clear(spinners)
+    clearEsp()
+    pcall(function() MainGui:Destroy() end)
+    pcall(function() EspGui:Destroy() end)
     env.ZenxhubDemonologyCleanup = nil
 end
 
-local Theme = {
-    Background = Color3.fromRGB(11, 11, 18),
-    Panel = Color3.fromRGB(18, 18, 28),
-    PanelAlt = Color3.fromRGB(26, 22, 42),
-    Element = Color3.fromRGB(26, 26, 40),
-    ElementHover = Color3.fromRGB(38, 38, 58),
-    Off = Color3.fromRGB(54, 54, 76),
-    Stroke = Color3.fromRGB(46, 46, 68),
-    Accent = Color3.fromRGB(0, 229, 255),
-    AccentDim = Color3.fromRGB(0, 96, 118),
-    Accent2 = Color3.fromRGB(170, 80, 255),
-    Text = Color3.fromRGB(240, 240, 248),
-    SubText = Color3.fromRGB(150, 150, 176),
-    Danger = Color3.fromRGB(255, 70, 90),
-    Good = Color3.fromRGB(70, 220, 130),
-    Warn = Color3.fromRGB(255, 190, 60),
-}
-
-local ACCENT_GRADIENT = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Theme.Accent),
-    ColorSequenceKeypoint.new(0.5, Theme.Accent2),
-    ColorSequenceKeypoint.new(1, Theme.Accent),
-})
-
-local function create(class, props, children)
-    local inst = Instance.new(class)
-    if inst:IsA("GuiObject") then
-        inst.BorderSizePixel = 0
-    end
-    local parent
-    for k, v in pairs(props or {}) do
-        if k == "Parent" then
-            parent = v
-        else
-            inst[k] = v
-        end
-    end
-    for _, child in ipairs(children or {}) do
-        child.Parent = inst
-    end
-    inst.Parent = parent
-    return inst
-end
-
-local function tween(inst, duration, props, style)
-    local tw = TweenService:Create(
-        inst,
-        TweenInfo.new(duration, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        props
-    )
-    tw:Play()
-    return tw
-end
-
-local function corner(radius)
-    return create("UICorner", { CornerRadius = UDim.new(0, radius) })
-end
-
-local function stroke(color, thickness, transparency)
-    return create("UIStroke", {
-        Color = color,
-        Thickness = thickness or 1,
-        Transparency = transparency or 0,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-    })
-end
-
-local function addAccentStroke(parent, thickness)
-    local s = create("UIStroke", {
-        Parent = parent,
-        Thickness = thickness,
-        Color = Color3.new(1, 1, 1),
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-    })
-    local g = create("UIGradient", { Parent = s, Color = ACCENT_GRADIENT })
-    table.insert(spinners, g)
-    return s
-end
-
-do
-    local lastSpin = 0
-    track(RunService.Heartbeat:Connect(function()
-        local now = os.clock()
-        if now - lastSpin < 0.05 then return end
-        lastSpin = now
-        local rot = (now * 60) % 360
-        for i = #spinners, 1, -1 do
-            local g = spinners[i]
-            if not g.Parent then
-                table.remove(spinners, i)
-            else
-                local sg = g:FindFirstAncestorOfClass("ScreenGui")
-                if sg and sg.Enabled then
-                    g.Rotation = rot
-                end
-            end
-        end
-    end))
-end
-
-local function isPress(input)
-    return input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch
-end
-
-local function isMove(input)
-    return input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch
-end
-
-local function makeDraggable(handle, target, scaleObj)
-    local dragging, moved = false, false
-    local startPos, startInput
-
-    handle.InputBegan:Connect(function(input)
-        if isPress(input) then
-            dragging = true
-            moved = false
-            startInput = input.Position
-            startPos = target.Position
-        end
-    end)
-    track(UserInputService.InputChanged:Connect(function(input)
-        if dragging and isMove(input) then
-            local delta = input.Position - startInput
-            if delta.Magnitude > 5 then
-                moved = true
-            end
-            if moved then
-                local s = scaleObj and scaleObj.Scale or 1
-                target.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X / s,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y / s
-                )
-            end
-        end
-    end))
-    track(UserInputService.InputEnded:Connect(function(input)
-        if isPress(input) then
-            dragging = false
-        end
-    end))
-
-    return function()
-        return moved
-    end
-end
-
-local MainGui = create("ScreenGui", {
-    Name = "ZenxhubDemonology",
-    ResetOnSpawn = false,
-    Enabled = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    DisplayOrder = 100,
-    Parent = parentGui,
-})
-
-local FloatGui = create("ScreenGui", {
-    Name = "ZenxhubDemonologyFloat",
-    ResetOnSpawn = false,
-    Enabled = false,
-    DisplayOrder = 101,
-    Parent = parentGui,
-})
-
-local EspGui = create("ScreenGui", {
-    Name = "ZenxhubDemonologyEsp",
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    Enabled = true,
-    Parent = parentGui,
-})
-
-onCleanup(function()
-    MainGui:Destroy()
-    FloatGui:Destroy()
-    EspGui:Destroy()
-end)
-
-local Main = create("Frame", {
-    Name = "Main",
-    Parent = MainGui,
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    Size = UDim2.new(0, 580, 0, 410),
-    BackgroundColor3 = Theme.Background,
-    BackgroundTransparency = 0.08,
-}, { corner(14) })
-addAccentStroke(Main, 2)
-
-local Scale = create("UIScale", { Parent = Main })
-local baseScale = 1
-local function updateScale()
-    local cam = Workspace.CurrentCamera
-    if cam then
-        local vs = cam.ViewportSize
-        baseScale = math.clamp(math.min(vs.X / 640, vs.Y / 460), 0.55, 1)
-        Scale.Scale = baseScale
-    end
-end
-updateScale()
-if Workspace.CurrentCamera then
-    track(Workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale))
-end
-
-local TopBar = create("Frame", {
-    Parent = Main,
-    BackgroundColor3 = Theme.PanelAlt,
-    BackgroundTransparency = 0.25,
-    Size = UDim2.new(1, 0, 0, 44),
-}, { corner(14) })
-
-create("Frame", {
-    Parent = Main,
-    BackgroundColor3 = Theme.PanelAlt,
-    BackgroundTransparency = 0.25,
-    Position = UDim2.new(0, 0, 0, 28),
-    Size = UDim2.new(1, 0, 0, 16),
-})
-
-create("Frame", {
-    Parent = Main,
-    BackgroundColor3 = Theme.Accent,
-    BackgroundTransparency = 0.4,
-    Position = UDim2.new(0, 0, 0, 44),
-    Size = UDim2.new(1, 0, 0, 1),
-})
-
-local titleLabel = create("TextLabel", {
-    Parent = TopBar,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(0, 16, 0, 0),
-    Size = UDim2.new(1, -90, 1, 0),
-    Font = Enum.Font.GothamBold,
-    Text = "⚡ ZENXHUB | DEMONOLOGY V1.0",
-    TextSize = 14,
-    TextColor3 = Color3.new(1, 1, 1),
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
-create("UIGradient", { Parent = titleLabel, Color = ColorSequence.new(Theme.Accent, Theme.Accent2) })
-
-local function topButton(text, xOff, hoverColor)
-    local b = create("TextButton", {
-        Parent = TopBar,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, xOff, 0.5, 0),
-        Size = UDim2.new(0, 26, 0, 26),
-        BackgroundColor3 = Theme.Element,
-        Font = Enum.Font.GothamBold,
-        Text = text,
-        TextSize = 13,
-        TextColor3 = Theme.Text,
-        AutoButtonColor = false,
-    }, { create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
-    b.MouseEnter:Connect(function() tween(b, 0.15, { BackgroundColor3 = hoverColor }) end)
-    b.MouseLeave:Connect(function() tween(b, 0.15, { BackgroundColor3 = Theme.Element }) end)
-    return b
-end
-
-local CloseBtn = topButton("✕", -10, Theme.Danger)
-local MinBtn = topButton("–", -42, Theme.ElementHover)
-
-makeDraggable(TopBar, Main, Scale)
-
-local FloatBtn = create("TextButton", {
-    Parent = FloatGui,
-    BackgroundColor3 = Theme.Background,
-    BackgroundTransparency = 0.1,
-    Position = UDim2.new(0, 30, 0.5, -26),
-    Size = UDim2.new(0, 52, 0, 52),
-    Font = Enum.Font.GothamBold,
-    Text = "ZENX",
-    TextSize = 12,
-    TextColor3 = Theme.Accent,
-    AutoButtonColor = false,
-}, { create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
-addAccentStroke(FloatBtn, 2)
-local floatWasDragged = makeDraggable(FloatBtn, FloatBtn)
-
-local menuVisible = true
-local menuKey = Enum.KeyCode.Z
-
-local function setMenuVisible(state)
-    menuVisible = state
-    MainGui.Enabled = state
-    FloatGui.Enabled = not state
-end
-
-MinBtn.MouseButton1Click:Connect(function() setMenuVisible(false) end)
-FloatBtn.MouseButton1Click:Connect(function()
-    if not floatWasDragged() then
-        setMenuVisible(true)
-    end
-end)
 CloseBtn.MouseButton1Click:Connect(function()
     if env.ZenxhubDemonologyCleanup then env.ZenxhubDemonologyCleanup() end
 end)
-
-track(UserInputService.InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == menuKey then
-        setMenuVisible(not menuVisible)
-    end
-end))
-
-local Sidebar = create("ScrollingFrame", {
-    Parent = Main,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(0, 10, 0, 54),
-    Size = UDim2.new(0, 140, 1, -64),
-    CanvasSize = UDim2.new(0, 0, 0, 0),
-    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    ScrollBarThickness = 0,
-}, {
-    create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5) }),
-})
-
-create("Frame", {
-    Parent = Main,
-    BackgroundColor3 = Theme.Stroke,
-    BackgroundTransparency = 0.3,
-    Position = UDim2.new(0, 156, 0, 54),
-    Size = UDim2.new(0, 1, 1, -64),
-})
-
-local Content = create("Frame", {
-    Parent = Main,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(0, 164, 0, 54),
-    Size = UDim2.new(1, -174, 1, -64),
-    ClipsDescendants = true,
-})
-
-local tabs = {}
-local function selectTab(tab)
-    for _, t in ipairs(tabs) do
-        local active = (t == tab)
-        t.Active = active
-        t.Page.Visible = active
-        tween(t.Button, 0.15, {
-            BackgroundColor3 = active and Theme.AccentDim or Theme.Element,
-            BackgroundTransparency = active and 0.25 or 1,
-            TextColor3 = active and Theme.Accent or Theme.SubText,
-        })
-    end
-end
-
-local function addTab(name, icon)
-    local btn = create("TextButton", {
-        Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.Element,
-        BackgroundTransparency = 1,
-        AutoButtonColor = false,
-        Font = Enum.Font.GothamSemibold,
-        Text = icon .. "  " .. name,
-        TextSize = 12,
-        TextColor3 = Theme.SubText,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, { corner(8), create("UIPadding", { PaddingLeft = UDim.new(0, 12) }) })
-
-    local page = create("ScrollingFrame", {
-        Parent = Content,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
-        Visible = false,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = Theme.Accent,
-    }, {
-        create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 7) }),
-        create("UIPadding", { PaddingRight = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
-    })
-
-    local tab = { Button = btn, Page = page, Active = false }
-    table.insert(tabs, tab)
-    btn.MouseButton1Click:Connect(function() selectTab(tab) end)
-    if #tabs == 1 then selectTab(tab) end
-
-    local api = {}
-
-    function api:Section(text)
-        local row = create("Frame", {
-            Parent = page,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 22),
-        })
-        create("TextLabel", {
-            Parent = row,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
-            Font = Enum.Font.GothamBold,
-            Text = "◆ " .. string.upper(text),
-            TextSize = 11,
-            TextColor3 = Theme.Accent,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-    end
-
-    function api:InfoCard(title, bodyText)
-        local f = create("Frame", {
-            Parent = page,
-            Size = UDim2.new(1, 0, 0, 44),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BackgroundColor3 = Theme.Element,
-            BackgroundTransparency = 0.2,
-        }, {
-            corner(8),
-            stroke(Theme.Accent, 1, 0.55),
-            create("UIPadding", {
-                PaddingTop = UDim.new(0, 8),
-                PaddingBottom = UDim.new(0, 8),
-                PaddingLeft = UDim.new(0, 12),
-                PaddingRight = UDim.new(0, 12),
-            }),
-            create("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
-        })
-
-        local tLbl = create("TextLabel", {
-            Parent = f,
-            LayoutOrder = 1,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 16),
-            Font = Enum.Font.GothamBold,
-            Text = title,
-            TextSize = 12,
-            TextColor3 = Theme.Accent,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        local bLbl = create("TextLabel", {
-            Parent = f,
-            LayoutOrder = 2,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            Font = Enum.Font.Gotham,
-            Text = bodyText,
-            TextSize = 11,
-            TextWrapped = true,
-            TextColor3 = Theme.Text,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        return {
-            SetTitle = function(t) tLbl.Text = t end,
-            SetBody = function(b) bLbl.Text = b end,
-        }
-    end
-
-    function api:Toggle(text, default, callback)
-        local f = create("Frame", {
-            Parent = page,
-            Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = Theme.Element,
-            BackgroundTransparency = 0.25,
-        }, { corner(8), stroke(Theme.Stroke, 1, 0.3) })
-
-        create("TextLabel", {
-            Parent = f,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(0, 12, 0, 0),
-            Size = UDim2.new(1, -64, 1, 0),
-            Font = Enum.Font.Gotham,
-            Text = text,
-            TextSize = 12,
-            TextColor3 = Theme.Text,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        local pill = create("Frame", {
-            Parent = f,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.new(0, 38, 0, 20),
-            BackgroundColor3 = Theme.Off,
-        }, { corner(10) })
-
-        local knob = create("Frame", {
-            Parent = pill,
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 3, 0.5, 0),
-            Size = UDim2.new(0, 14, 0, 14),
-            BackgroundColor3 = Theme.Text,
-        }, { corner(10) })
-
-        local hit = create("TextButton", {
-            Parent = f,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Text = "",
-        })
-
-        local state = default or false
-        local function update(v)
-            state = v
-            tween(pill, 0.15, { BackgroundColor3 = state and Theme.Accent or Theme.Off })
-            tween(knob, 0.15, { Position = state and UDim2.new(1, -17, 0.5, 0) or UDim2.new(0, 3, 0.5, 0) })
-            if callback then task.spawn(pcall, callback, state) end
-        end
-
-        hit.MouseButton1Click:Connect(function() update(not state) end)
-        if state then update(true) end
-        return { Get = function() return state end, Set = update }
-    end
-
-    function api:Slider(text, min, max, default, suffix, callback)
-        local f = create("Frame", {
-            Parent = page,
-            Size = UDim2.new(1, 0, 0, 48),
-            BackgroundColor3 = Theme.Element,
-            BackgroundTransparency = 0.25,
-        }, { corner(8), stroke(Theme.Stroke, 1, 0.3) })
-
-        create("TextLabel", {
-            Parent = f,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(0, 12, 0, 4),
-            Size = UDim2.new(1, -90, 0, 18),
-            Font = Enum.Font.Gotham,
-            Text = text,
-            TextSize = 12,
-            TextColor3 = Theme.Text,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        local valLbl = create("TextLabel", {
-            Parent = f,
-            BackgroundTransparency = 1,
-            AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -12, 0, 4),
-            Size = UDim2.new(0, 75, 0, 18),
-            Font = Enum.Font.GothamBold,
-            Text = tostring(default) .. (suffix or ""),
-            TextSize = 11,
-            TextColor3 = Theme.Accent,
-            TextXAlignment = Enum.TextXAlignment.Right,
-        })
-
-        local bar = create("Frame", {
-            Parent = f,
-            Position = UDim2.new(0, 12, 0, 30),
-            Size = UDim2.new(1, -24, 0, 6),
-            BackgroundColor3 = Theme.Off,
-        }, { corner(6) })
-
-        local fill = create("Frame", {
-            Parent = bar,
-            Size = UDim2.new(math.clamp((default - min) / (max - min), 0, 1), 0, 1, 0),
-            BackgroundColor3 = Theme.Accent,
-        }, { corner(6) })
-
-        local hit = create("TextButton", {
-            Parent = f,
-            Position = UDim2.new(0, 8, 0, 20),
-            Size = UDim2.new(1, -16, 0, 24),
-            BackgroundTransparency = 1,
-            Text = "",
-        })
-
-        local sliding = false
-        local function setVal(x)
-            local rel = math.clamp((x - bar.AbsolutePosition.X) / math.max(1, bar.AbsoluteSize.X), 0, 1)
-            local val = math.floor(min + (max - min) * rel + 0.5)
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            valLbl.Text = tostring(val) .. (suffix or "")
-            if callback then task.spawn(pcall, callback, val) end
-        end
-
-        hit.InputBegan:Connect(function(input)
-            if isPress(input) then
-                sliding = true
-                setVal(input.Position.X)
-            end
-        end)
-        track(UserInputService.InputChanged:Connect(function(input)
-            if sliding and isMove(input) then setVal(input.Position.X) end
-        end))
-        track(UserInputService.InputEnded:Connect(function(input)
-            if isPress(input) then sliding = false end
-        end))
-    end
-
-    function api:Button(text, callback)
-        local b = create("TextButton", {
-            Parent = page,
-            Size = UDim2.new(1, 0, 0, 34),
-            BackgroundColor3 = Theme.Element,
-            BackgroundTransparency = 0.25,
-            Font = Enum.Font.GothamSemibold,
-            Text = text,
-            TextSize = 12,
-            TextColor3 = Theme.Accent,
-            AutoButtonColor = false,
-        }, { corner(8), stroke(Theme.Accent, 1, 0.5) })
-        b.MouseEnter:Connect(function() tween(b, 0.15, { BackgroundColor3 = Theme.ElementHover }) end)
-        b.MouseLeave:Connect(function() tween(b, 0.15, { BackgroundColor3 = Theme.Element }) end)
-        b.MouseButton1Click:Connect(function()
-            if callback then task.spawn(pcall, callback) end
-        end)
-        return b
-    end
-
-    return api
-end
-
-local Config = {
-    GhostEsp = true,
-    EvidenceEsp = true,
-    CursedEsp = true,
-    BreakerEsp = true,
-    Fullbright = false,
-    InfStamina = true,
-    WalkSpeedEnabled = false,
-    WalkSpeed = 24,
-    NoClip = false,
-}
-
-local function getHRP(model)
-    if not model then return nil end
-    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-end
-
-local function isGhostEntity(obj)
-    if not obj:IsA("Model") or obj == LocalPlayer.Character or Players:GetPlayerFromCharacter(obj) then
-        return false
-    end
-    local lower = string.lower(obj.Name)
-    if lower:find("ghost") or lower:find("demon") or lower:find("spirit") or lower:find("entity") or lower:find("phantom") or lower:find("wraith") or lower:find("banshee") or lower:find("shade") then
-        return true
-    end
-    if obj:GetAttribute("IsGhost") == true or obj:GetAttribute("Ghost") == true then
-        return true
-    end
-    return false
-end
-
-local function classifyWorldObject(obj)
-    local lower = string.lower(obj.Name)
-    if lower:find("breaker") or lower:find("fuse") or lower:find("powerbox") or lower:find("generator") then
-        return "breaker", "⚡ Breaker / Power"
-    end
-    if lower:find("ouija") or lower:find("tarot") or lower:find("cursed") or lower:find("mirror") or lower:find("doll") or lower:find("music box") or lower:find("voodoo") or lower:find("summon") then
-        return "cursed", "🔮 Cursed: " .. obj.Name
-    end
-    if lower:find("orb") or lower:find("fingerprint") or lower:find("handprint") or lower:find("freezing") or lower:find("emf") or lower:find("evidence") or lower:find("bone") or lower:find("footprint") then
-        return "evidence", "🔍 Evidence: " .. obj.Name
-    end
-    return nil, nil
-end
-
-local espPool = {}
-local function clearEspByCategory(cat)
-    for key, entry in pairs(espPool) do
-        if not cat or entry.Category == cat then
-            pcall(function() entry.Folder:Destroy() end)
-            espPool[key] = nil
-        end
-    end
-end
-
-local function syncEspVisual(key, adornee, category, text, color, isModel)
-    local char = LocalPlayer.Character
-    local hrp = getHRP(char)
-    local dist = (hrp and adornee:IsA("BasePart")) and math.floor((adornee.Position - hrp.Position).Magnitude) or 0
-
-    local entry = espPool[key]
-    if not entry or not entry.Folder.Parent then
-        local folder = Instance.new("Folder")
-        folder.Name = "DemoESP_" .. category
-        folder.Parent = EspGui
-
-        local bb = Instance.new("BillboardGui")
-        bb.Adornee = adornee
-        bb.AlwaysOnTop = true
-        bb.Size = UDim2.fromOffset(200, 32)
-        bb.StudsOffset = Vector3.new(0, 2.2, 0)
-        bb.Parent = folder
-
-        local lbl = Instance.new("TextLabel", bb)
-        lbl.Name = "Tag"
-        lbl.Size = UDim2.fromScale(1, 1)
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextStrokeTransparency = 0.25
-        lbl.TextSize = 12
-        lbl.Parent = bb
-
-        local hl = Instance.new("Highlight")
-        hl.Adornee = isModel and adornee.Parent or adornee
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.FillTransparency = 0.55
-        hl.OutlineTransparency = 0
-        hl.Parent = folder
-
-        entry = { Folder = folder, Label = lbl, Highlight = hl, Category = category }
-        espPool[key] = entry
-    end
-
-    entry.Label.Text = dist > 0 and string.format("%s [%dm]", text, dist) or text
-    entry.Label.TextColor3 = color
-    entry.Highlight.FillColor = color
-    entry.Highlight.OutlineColor = Color3.new(1, 1, 1)
-end
-
-task.spawn(function()
-    while env.ZenxhubDemonologyCleanup do
-        if not Config.GhostEsp then clearEspByCategory("ghost") end
-        if not Config.EvidenceEsp then clearEspByCategory("evidence") end
-        if not Config.CursedEsp then clearEspByCategory("cursed") end
-        if not Config.BreakerEsp then clearEspByCategory("breaker") end
-
-        local seenKeys = {}
-
-        if Config.GhostEsp then
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if isGhostEntity(obj) then
-                    local part = getHRP(obj)
-                    if part and part.Parent then
-                        local key = obj:GetDebugId()
-                        seenKeys[key] = true
-                        local hunting = (obj:GetAttribute("Hunting") == true) or (obj:GetAttribute("IsHunting") == true)
-                        local tag = hunting and ("💀 HUNTING: " .. obj.Name) or ("👻 Ghost: " .. obj.Name)
-                        local col = hunting and Theme.Danger or Theme.Accent2
-                        syncEspVisual(key, part, "ghost", tag, col, true)
-                    end
-                end
-            end
-        end
-
-        if Config.EvidenceEsp or Config.CursedEsp or Config.BreakerEsp then
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Tool") then
-                    local cat, label = classifyWorldObject(obj)
-                    if cat then
-                        local enabled = (cat == "evidence" and Config.EvidenceEsp)
-                            or (cat == "cursed" and Config.CursedEsp)
-                            or (cat == "breaker" and Config.BreakerEsp)
-                        if enabled then
-                            local part = obj:IsA("BasePart") and obj or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart", true)
-                            if part and part.Parent then
-                                local key = obj:GetDebugId()
-                                seenKeys[key] = true
-                                local col = (cat == "breaker" and Theme.Good)
-                                    or (cat == "cursed" and Theme.Accent2)
-                                    or Theme.Warn
-                                syncEspVisual(key, part, cat, label, col, obj:IsA("Model"))
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        for key, entry in pairs(espPool) do
-            if not seenKeys[key] then
-                pcall(function() entry.Folder:Destroy() end)
-                espPool[key] = nil
-            end
-        end
-
-        task.wait(0.6)
-    end
-end)
-
-local origAmbient = Lighting.Ambient
-local origBrightness = Lighting.Brightness
-local origGlobalShadows = Lighting.GlobalShadows
-local origFogEnd = Lighting.FogEnd
-
-track(RunService.Heartbeat:Connect(function()
-    if Config.Fullbright then
-        Lighting.Ambient = Color3.new(1, 1, 1)
-        Lighting.Brightness = 2.2
-        Lighting.GlobalShadows = false
-        Lighting.FogEnd = 100000
-    end
-
-    local char = LocalPlayer.Character
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hum and Config.WalkSpeedEnabled then
-        hum.WalkSpeed = Config.WalkSpeed
-    end
-
-    if Config.InfStamina and char then
-        for _, v in ipairs(char:GetDescendants()) do
-            if v:IsA("NumberValue") or v:IsA("IntValue") then
-                local n = string.lower(v.Name)
-                if n:find("stamina") or n:find("energy") or n:find("sprint") then
-                    if v.Name:lower():find("max") then
-                        -- giữ nguyên max
-                    elseif v.Value < 100 then
-                        v.Value = 100
-                    end
-                end
-            end
-        end
-        for attr, val in pairs(LocalPlayer:GetAttributes()) do
-            local n = string.lower(attr)
-            if (n:find("stamina") or n:find("energy")) and type(val) == "number" and val < 100 then
-                LocalPlayer:SetAttribute(attr, 100)
-            end
-        end
-    end
-end))
-
-track(RunService.Stepped:Connect(function()
-    if Config.NoClip and LocalPlayer.Character then
-        for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if p:IsA("BasePart") then
-                p.CanCollide = false
-            end
-        end
-    end
-end))
 
 onCleanup(function()
     Lighting.Ambient = origAmbient
@@ -872,38 +643,146 @@ onCleanup(function()
     Lighting.FogEnd = origFogEnd
 end)
 
-local tEsp = addTab("ESP & Tìm Đồ", "👁️")
-local tSurvive = addTab("Sinh Tồn", "🔦")
-local tGuide = addTab("Tra Cứu", "📖")
-local tSys = addTab("Hệ Thống", "⚙️")
-
-tEsp:Section("Theo Dõi Thực Thể & Vật Phẩm")
-tEsp:Toggle("ESP Ma / Thực Thể (Ghost ESP)", true, function(v) Config.GhostEsp = v end)
-tEsp:Toggle("ESP Bằng Chứng (Orbs / Prints / Bone)", true, function(v) Config.EvidenceEsp = v end)
-tEsp:Toggle("ESP Vật Phẩm Bị Nguyền (Cursed)", true, function(v) Config.CursedEsp = v end)
-tEsp:Toggle("ESP Cầu Chì Điện (Breaker Box)", true, function(v) Config.BreakerEsp = v end)
-
-tSurvive:Section("Hỗ Trợ Điều Tra & Chạy Trốn")
-tSurvive:Toggle("Sáng Bản Đồ (Fullbright / No Fog)", false, function(v)
-    Config.Fullbright = v
-    if not v then
-        Lighting.Ambient = origAmbient
-        Lighting.Brightness = origBrightness
-        Lighting.GlobalShadows = origGlobalShadows
-        Lighting.FogEnd = origFogEnd
+track(RunService.Heartbeat:Connect(function()
+    if State.Fullbright then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2.2
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 100000
     end
-end)
-tSurvive:Toggle("Thể Lực Vô Hạn (Infinite Stamina)", true, function(v) Config.InfStamina = v end)
-tSurvive:Toggle("Tăng Tốc Di Chuyển (WalkSpeed)", false, function(v) Config.WalkSpeedEnabled = v end)
-tSurvive:Slider("Tốc Độ Chạy", 16, 45, 24, "", function(v) Config.WalkSpeed = v end)
-tSurvive:Toggle("Xuyên Vật Cản (NoClip)", false, function(v) Config.NoClip = v end)
 
-tGuide:Section("Mẹo Điều Tra Nhanh")
-tGuide:InfoCard("EMF Level 5 & Freezing Temps", "• EMF 5: Kiểm tra khi ma tương tác cửa, công tắc hoặc ném đồ.\n• Freezing: Nhiệt độ phòng giảm sâu dưới 0°C và có hơi thở lạnh.")
-tGuide:InfoCard("Ghost Orbs & Handprints", "• Ghost Orbs: Đốm sáng trôi nổi lơ lửng trong phòng ma.\n• Handprints: Dấu vân tay/bàn tay xuất hiện trên cửa hoặc công tắc sau khi ma chạm vào.")
-tGuide:InfoCard("Khi Ma Bắt Đầu Hunt", "• Tắt đèn pin và thiết bị điện tử đang cầm trên tay để giảm khả năng bị phát hiện.\n• Nấp sau vật cản kín tầm nhìn và giữ yên lặng cho đến khi hết Hunt.")
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum and State.SpeedEnabled then
+        hum.WalkSpeed = State.WalkSpeed
+    end
 
-tSys:Section("Điều Khiển Menu")
-tSys:Button("🚪 Đóng & Gỡ Script", function()
-    if env.ZenxhubDemonologyCleanup then env.ZenxhubDemonologyCleanup() end
+    local staminaVal = 100
+    if char then
+        for _, v in ipairs(char:GetDescendants()) do
+            if (v:IsA("NumberValue") or v:IsA("IntValue")) and string.lower(v.Name):find("stamina") then
+                if not string.lower(v.Name):find("max") then
+                    staminaVal = math.clamp(math.floor(v.Value), 0, 100)
+                end
+            end
+        end
+    end
+    energyValLbl.Text = string.format("%s: %d%%", LocalPlayer.Name, staminaVal)
+end))
+
+task.spawn(function()
+    while env.ZenxhubDemonologyCleanup do
+        local found = {
+            handprints = false,
+            spirit = false,
+            orb = false,
+            writing = false,
+            laser = false,
+            wither = false,
+            emf = 0,
+            temp = 0,
+            favRoom = "...",
+            curRoom = "...",
+        }
+
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            local n = string.lower(obj.Name)
+            if n:find("handprint") or n:find("fingerprint") then
+                found.handprints = true
+            elseif n:find("orb") then
+                found.orb = true
+            elseif n:find("writing") or n:find("ghostbook") or n:find("book") then
+                found.writing = true
+            elseif n:find("laser") or n:find("projector") or n:find("dots") then
+                found.laser = true
+            elseif n:find("wither") or n:find("salt") or n:find("bone") then
+                found.wither = true
+            elseif n:find("emf") then
+                local lvl = tonumber(obj.Name:match("%d+")) or obj:GetAttribute("EMF") or 0
+                if type(lvl) == "number" and lvl > found.emf then
+                    found.emf = math.clamp(lvl, 0, 5)
+                end
+            end
+        end
+
+        local ghost = findGhostModel()
+        if ghost then
+            local fav = ghost:GetAttribute("FavoriteRoom") or ghost:GetAttribute("GhostRoom") or ghost:GetAttribute("Room")
+            local cur = ghost:GetAttribute("CurrentRoom") or ghost:GetAttribute("Room")
+            if type(fav) == "string" and fav ~= "" then found.favRoom = fav end
+            if type(cur) == "string" and cur ~= "" then found.curRoom = cur end
+            local gTemp = ghost:GetAttribute("Temperature") or ghost:GetAttribute("Temp")
+            if type(gTemp) == "number" then found.temp = math.floor(gTemp) end
+        end
+
+        local function setEv(lbl, prefix, isYes)
+            lbl.Text = prefix .. (isYes and "Yes" or "No")
+            lbl.TextColor3 = isYes and Theme.Green or Theme.Red
+        end
+
+        setEv(evHandprints, "Handprints: ", found.handprints)
+        setEv(evSpiritBox, "Spirit Box: ", found.spirit)
+        setEv(evGhostOrb, "Ghost Orb: ", found.orb)
+        setEv(evWriting, "Ghost Writing: ", found.writing)
+        setEv(evLaser, "Laser Projector: ", found.laser)
+        setEv(evWither, "Wither: ", found.wither)
+
+        evEmf.Text = "EMF level: " .. tostring(found.emf)
+        evEmf.TextColor3 = found.emf >= 5 and Theme.Green or (found.emf > 0 and Theme.Yellow or Theme.Red)
+
+        evTemp.Text = "Temperature: " .. tostring(found.temp) .. "C"
+        evTemp.TextColor3 = found.temp <= 0 and Theme.Cyan or Theme.Yellow
+
+        ghostMetaLbl.Text = string.format("Ghost: Unknown | Age ?? | Favorite room: %s", found.favRoom)
+        currentRoomLbl.Text = string.format("Current room: %s", found.curRoom)
+
+        if State.AutoSpirit then
+            pcall(function()
+                for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if rem:IsA("RemoteEvent") and string.lower(rem.Name):find("spirit") then
+                        rem:FireServer("Hello")
+                    end
+                end
+            end)
+        end
+
+        if State.GhostEsp then
+            rebuildCategoryEsp("ghost", function(o)
+                return o:IsA("Model") and o ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(o)
+                    and (string.lower(o.Name):find("ghost") or string.lower(o.Name):find("demon") or string.lower(o.Name):find("spirit") or o:GetAttribute("IsGhost") == true)
+            end, function() return Theme.Red end, function(o, d)
+                return string.format("👻 %s [%dm]", o.Name, d)
+            end)
+        end
+
+        if State.ItemEsp then
+            rebuildCategoryEsp("item", function(o)
+                if not (o:IsA("BasePart") or o:IsA("Model") or o:IsA("Tool")) then return false end
+                local n = string.lower(o.Name)
+                return n:find("flashlight") or n:find("camera") or n:find("therm") or n:find("emf") or n:find("book") or n:find("spirit") or n:find("lighter") or n:find("crucifix") or n:find("salt")
+            end, function() return Theme.Yellow end, function(o, d)
+                return string.format("📦 %s [%dm]", o.Name, d)
+            end)
+        end
+
+        if State.PlayersEsp then
+            rebuildCategoryEsp("player", function(o)
+                if not o:IsA("Model") or o == LocalPlayer.Character then return false end
+                return Players:GetPlayerFromCharacter(o) ~= nil
+            end, function() return Theme.Green end, function(o, d)
+                return string.format("👤 %s [%dm]", o.Name, d)
+            end)
+        end
+
+        if State.EvidenceEsp then
+            rebuildCategoryEsp("evidence", function(o)
+                local n = string.lower(o.Name)
+                return n:find("handprint") or n:find("fingerprint") or n:find("orb") or n:find("writing") or n:find("bone")
+            end, function() return Theme.Cyan end, function(o, d)
+                return string.format("🔍 %s [%dm]", o.Name, d)
+            end)
+        end
+
+        task.wait(0.8)
+    end
 end)
